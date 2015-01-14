@@ -37,6 +37,9 @@
 #include "RingQueue.h"
 #include "SpinMutex.h"
 
+#include "MessageEvent.h"
+#include "DisruptorRingQueue.h"
+
 //#include <vld.h>
 #include <errno.h>
 
@@ -836,7 +839,7 @@ RingQueue_start_thread(int id,
 #if (defined(USE_THREAD_AFFINITY) && (USE_THREAD_AFFINITY != 0))
     CPU_ZERO(&cpuset);
     //core_id = CORE_ID(id);
-    core_id = id % jimi_get_processor_num();
+    core_id = id % get_num_of_processors();
     //printf("id = %d, core_id = %d.\n", core_id, id);
     CPU_SET(core_id, &cpuset);
 #endif
@@ -995,7 +998,7 @@ start_thread(int id,
 #if (defined(USE_THREAD_AFFINITY) && (USE_THREAD_AFFINITY != 0))
     CPU_ZERO(&cpuset);
     //core_id = CORE_ID(id);
-    core_id = id % jimi_get_processor_num();
+    core_id = id % get_num_of_processors();
     //printf("core_id = %d, id = %d.\n", core_id, id);
     CPU_SET(core_id, &cpuset);
 #endif
@@ -1379,7 +1382,7 @@ RingQueue_UnitTest(void)
     printf("---------------------------------------------------------------\n");
     printf("RingQueue2() test begin...\n\n");
 
-    printf("ringQueue.capcity() = %u\n", ringQueue.capcity());
+    printf("ringQueue.capacity() = %u\n", ringQueue.capacity());
     printf("ringQueue.mask()    = %u\n\n", ringQueue.mask());
     printf("ringQueue.sizes()   = %u\n\n", ringQueue.sizes());
 
@@ -1619,6 +1622,16 @@ main(int argn, char * argv[])
 
     jimi_cpu_warmup(500);
 
+    DisruptorRingQueue<MessageEvent, QSIZE> disRingQueue;
+    MessageEvent event;
+    disRingQueue.push(event);
+    disRingQueue.pop(event);
+
+    //disRingQueue.dump_detail();
+    //disRingQueue.dump_info();
+
+    //disRingQueue.
+
     test_msg_init();
     popmsg_list_init();
 
@@ -1645,8 +1658,17 @@ main(int argn, char * argv[])
 
     //RingQueue_Test(6, bConti);  //             调用RingQueue.spin3_push().
   #else
-    // 根据指定的 TEST_FUNC_TYPE 执行RingQueue相应的push()和pop()函数
-    RingQueue_Test(TEST_FUNC_TYPE, bConti);
+    // 连续测试3次
+    static const int kMaxPassNum = 3;
+    bConti = true;
+    for (int n = 1; n <= kMaxPassNum; ++n) {
+        // 根据指定的 TEST_FUNC_TYPE 执行RingQueue相应的push()和pop()函数
+#if !defined(USE_DOUBAN_QUEUE) || (USE_DOUBAN_QUEUE == 0)
+        if (n == kMaxPassNum)
+            bConti = false;
+#endif
+        RingQueue_Test(TEST_FUNC_TYPE, bConti);
+    }
   #endif
 #endif
 

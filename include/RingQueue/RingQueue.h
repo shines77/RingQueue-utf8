@@ -27,10 +27,6 @@
 
 #include "dump_mem.h"
 
-#ifndef JIMI_CACHE_LINE_SIZE
-#define JIMI_CACHE_LINE_SIZE    64
-#endif
-
 namespace jimi {
 
 #if 0
@@ -53,10 +49,10 @@ struct RingQueueHead
 typedef struct RingQueueHead RingQueueHead;
 
 ///////////////////////////////////////////////////////////////////
-// class SmallRingQueueCore<Capcity>
+// class SmallRingQueueCore<Capacity>
 ///////////////////////////////////////////////////////////////////
 
-template <typename T, uint32_t Capcity>
+template <typename T, uint32_t Capacity>
 class SmallRingQueueCore
 {
 public:
@@ -64,19 +60,19 @@ public:
     typedef T *         item_type;
 
 public:
-    static const size_type  kCapcityCore    = (size_type)JIMI_MAX(JIMI_ROUND_TO_POW2(Capcity), 2);
+    static const size_type  kCapacityCore    = (size_type)JIMI_MAX(JIMI_ROUND_TO_POW2(Capacity), 2);
     static const bool       kIsAllocOnHeap  = false;
 
 public:
     RingQueueHead       info;
-    volatile item_type  queue[kCapcityCore];
+    volatile item_type  queue[kCapacityCore];
 };
 
 ///////////////////////////////////////////////////////////////////
-// class RingQueueCore<Capcity>
+// class RingQueueCore<Capacity>
 ///////////////////////////////////////////////////////////////////
 
-template <typename T, uint32_t Capcity>
+template <typename T, uint32_t Capacity>
 class RingQueueCore
 {
 public:
@@ -91,11 +87,11 @@ public:
 };
 
 ///////////////////////////////////////////////////////////////////
-// class RingQueueBase<T, Capcity, CoreTy>
+// class RingQueueBase<T, Capacity, CoreTy>
 ///////////////////////////////////////////////////////////////////
 
-template <typename T, uint32_t Capcity = 16U,
-          typename CoreTy = RingQueueCore<T, Capcity> >
+template <typename T, uint32_t Capacity = 16U,
+          typename CoreTy = RingQueueCore<T, Capacity> >
 class RingQueueBase
 {
 public:
@@ -110,8 +106,8 @@ public:
     typedef const T &                   const_reference;
 
 public:
-    static const size_type  kCapcity = (size_type)JIMI_MAX(JIMI_ROUND_TO_POW2(Capcity), 2);
-    static const index_type kMask    = (index_type)(kCapcity - 1);
+    static const size_type  kCapacity = (size_type)JIMI_MAX(JIMI_ROUND_TO_POW2(Capacity), 2);
+    static const index_type kMask     = (index_type)(kCapacity - 1);
 
 public:
     RingQueueBase(bool bInitHead = false);
@@ -121,9 +117,9 @@ public:
     void dump_info();
     void dump_detail();
 
-    index_type mask() const      { return kMask;    };
-    size_type capcity() const    { return kCapcity; };
-    size_type length() const     { return sizes();  };
+    index_type mask() const      { return kMask;     };
+    size_type capacity() const   { return kCapacity; };
+    size_type length() const     { return sizes();   };
     size_type sizes() const;
 
     void init(bool bInitHead = false);
@@ -143,6 +139,8 @@ public:
     int spin2_push(T * item);
     T * spin2_pop();
 
+    int spin2_push_(T * item);
+
     int spin3_push(T * item);
     T * spin3_pop();
 
@@ -161,16 +159,16 @@ protected:
     pthread_mutex_t queue_mutex;
 };
 
-template <typename T, uint32_t Capcity, typename CoreTy>
-RingQueueBase<T, Capcity, CoreTy>::RingQueueBase(bool bInitHead  /* = false */)
+template <typename T, uint32_t Capacity, typename CoreTy>
+RingQueueBase<T, Capacity, CoreTy>::RingQueueBase(bool bInitHead  /* = false */)
 {
     //printf("RingQueueBase::RingQueueBase();\n\n");
 
     init(bInitHead);
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
-RingQueueBase<T, Capcity, CoreTy>::~RingQueueBase()
+template <typename T, uint32_t Capacity, typename CoreTy>
+RingQueueBase<T, Capacity, CoreTy>::~RingQueueBase()
 {
     // Do nothing!
     Jimi_ReadWriteBarrier();
@@ -180,9 +178,9 @@ RingQueueBase<T, Capcity, CoreTy>::~RingQueueBase()
     pthread_mutex_destroy(&queue_mutex);
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-void RingQueueBase<T, Capcity, CoreTy>::init(bool bInitHead /* = false */)
+void RingQueueBase<T, Capacity, CoreTy>::init(bool bInitHead /* = false */)
 {
     //printf("RingQueueBase::init();\n\n");
 
@@ -207,15 +205,15 @@ void RingQueueBase<T, Capcity, CoreTy>::init(bool bInitHead /* = false */)
     pthread_mutex_init(&queue_mutex, NULL);
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
-void RingQueueBase<T, Capcity, CoreTy>::dump_info()
+template <typename T, uint32_t Capacity, typename CoreTy>
+void RingQueueBase<T, Capacity, CoreTy>::dump_info()
 {
     //ReleaseUtils::dump(&core.info, sizeof(core.info));
     dump_mem(&core.info, sizeof(core.info), false, 16, 0, 0);
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
-void RingQueueBase<T, Capcity, CoreTy>::dump_detail()
+template <typename T, uint32_t Capacity, typename CoreTy>
+void RingQueueBase<T, Capacity, CoreTy>::dump_detail()
 {
 #if 0
     printf("---------------------------------------------------------\n");
@@ -228,10 +226,10 @@ void RingQueueBase<T, Capcity, CoreTy>::dump_detail()
 #endif
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-typename RingQueueBase<T, Capcity, CoreTy>::size_type
-RingQueueBase<T, Capcity, CoreTy>::sizes() const
+typename RingQueueBase<T, Capacity, CoreTy>::size_type
+RingQueueBase<T, Capacity, CoreTy>::sizes() const
 {
     index_type head, tail;
 
@@ -244,9 +242,9 @@ RingQueueBase<T, Capcity, CoreTy>::sizes() const
     return (size_type)((head - tail) <= kMask) ? (head - tail) : (size_type)-1;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::push(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::push(T * item)
 {
     index_type head, tail, next;
     bool ok = false;
@@ -269,9 +267,9 @@ int RingQueueBase<T, Capcity, CoreTy>::push(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::pop()
+T * RingQueueBase<T, Capacity, CoreTy>::pop()
 {
     index_type head, tail, next;
     value_type item;
@@ -295,9 +293,9 @@ T * RingQueueBase<T, Capcity, CoreTy>::pop()
     return item;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::push2(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::push2(T * item)
 {
     index_type head, tail, next;
     bool ok = false;
@@ -330,9 +328,9 @@ int RingQueueBase<T, Capcity, CoreTy>::push2(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::pop2()
+T * RingQueueBase<T, Capacity, CoreTy>::pop2()
 {
     index_type head, tail, next;
     value_type item;
@@ -368,9 +366,9 @@ T * RingQueueBase<T, Capcity, CoreTy>::pop2()
     return item;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::spin_push(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::spin_push(T * item)
 {
     index_type head, tail, next;
 #if defined(USE_SPIN_MUTEX_COUNTER) && (USE_SPIN_MUTEX_COUNTER != 0)
@@ -423,9 +421,9 @@ int RingQueueBase<T, Capcity, CoreTy>::spin_push(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::spin_pop()
+T * RingQueueBase<T, Capacity, CoreTy>::spin_pop()
 {
     index_type head, tail, next;
     value_type item;
@@ -479,9 +477,9 @@ T * RingQueueBase<T, Capcity, CoreTy>::spin_pop()
     return item;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::spin1_push(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::spin1_push(T * item)
 {
     index_type head, tail, next;
     uint32_t pause_cnt, spin_counter;
@@ -534,9 +532,9 @@ int RingQueueBase<T, Capcity, CoreTy>::spin1_push(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::spin1_pop()
+T * RingQueueBase<T, Capacity, CoreTy>::spin1_pop()
 {
     index_type head, tail, next;
     value_type item;
@@ -590,9 +588,71 @@ T * RingQueueBase<T, Capcity, CoreTy>::spin1_pop()
     return item;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::spin2_push(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::spin2_push_(T * item)
+{
+    index_type head, tail, next;
+    int32_t pause_cnt;
+    uint32_t loop_count, yield_cnt, spin_count;
+    static const uint32_t YIELD_THRESHOLD = 1;  // 自旋次数阀值
+
+    Jimi_ReadWriteBarrier();    // 编译器读写屏障
+
+    // 下面这一句是一个小技巧, 参考自 pthread_spin_lock(), 自旋开始.
+    if (jimi_lock_test_and_set32(&spin_mutex.locked, 1U) != 0U) {
+        loop_count = 0;
+        spin_count = 1;
+        do {
+            if (loop_count < YIELD_THRESHOLD) {
+                for (pause_cnt = spin_count; pause_cnt > 0; --pause_cnt) {
+                    jimi_mm_pause();        // 这是为支持超线程的 CPU 准备的切换提示
+                }
+                spin_count *= 2;
+            }
+            else {
+                yield_cnt = loop_count - YIELD_THRESHOLD;
+                if ((yield_cnt & 63) == 63) {
+                    jimi_sleep(1);          // 真正的休眠, 转入内核态
+                }
+                else if ((yield_cnt & 3) == 3) {
+                    jimi_sleep(0);          // 切换到优先级跟自己一样或更高的线程, 可以换到别的CPU核心上
+                }
+                else {
+                    if (!jimi_yield()) {    // 让步给该线程所在的CPU核心上的别的线程,
+                                            // 不能切换到别的CPU核心上等待的线程
+                        jimi_sleep(0);      // 如果同核心上没有可切换的线程,
+                                            // 则切到别的核心试试(只能切优先级跟自己相同或更好的)
+                    }
+                }
+            }
+            loop_count++;
+        } while (jimi_val_compare_and_swap32(&spin_mutex.locked, 0U, 1U) != 0U);
+    }
+
+    // 进入锁区域
+    head = core.info.head;
+    tail = core.info.tail;
+    if ((head - tail) > kMask) {
+        Jimi_ReadWriteBarrier();
+        // 队列已满, 释放锁
+        spin_mutex.locked = 0;
+        return -1;
+    }
+    next = head + 1;
+    core.info.head = next;
+
+    core.queue[head & kMask] = item;    // 把数据写入队列
+
+    Jimi_ReadWriteBarrier();        // 编译器读写屏障
+
+    spin_mutex.locked = 0;          // 释放锁
+    return 0;
+}
+
+template <typename T, uint32_t Capacity, typename CoreTy>
+inline
+int RingQueueBase<T, Capacity, CoreTy>::spin2_push(T * item)
 {
     index_type head, tail, next;
     int32_t pause_cnt;
@@ -669,9 +729,9 @@ int RingQueueBase<T, Capcity, CoreTy>::spin2_push(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::spin2_pop()
+T * RingQueueBase<T, Capacity, CoreTy>::spin2_pop()
 {
     index_type head, tail, next;
     value_type item;
@@ -751,9 +811,9 @@ T * RingQueueBase<T, Capcity, CoreTy>::spin2_pop()
     return item;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::spin3_push(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::spin3_push(T * item)
 {
     index_type head, tail, next;
     int32_t pause_cnt;
@@ -836,9 +896,9 @@ int RingQueueBase<T, Capcity, CoreTy>::spin3_push(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::spin3_pop()
+T * RingQueueBase<T, Capacity, CoreTy>::spin3_pop()
 {
     index_type head, tail, next;
     value_type item;
@@ -924,9 +984,9 @@ T * RingQueueBase<T, Capcity, CoreTy>::spin3_pop()
     return item;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::spin8_push(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::spin8_push(T * item)
 {
     index_type head, tail, next;
 
@@ -955,9 +1015,9 @@ int RingQueueBase<T, Capcity, CoreTy>::spin8_push(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::spin8_pop()
+T * RingQueueBase<T, Capacity, CoreTy>::spin8_pop()
 {
     index_type head, tail, next;
     value_type item;
@@ -989,9 +1049,9 @@ T * RingQueueBase<T, Capcity, CoreTy>::spin8_pop()
     return item;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::spin9_push(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::spin9_push(T * item)
 {
     index_type head, tail, next;
     int cnt;
@@ -1040,9 +1100,9 @@ int RingQueueBase<T, Capcity, CoreTy>::spin9_push(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::spin9_pop()
+T * RingQueueBase<T, Capacity, CoreTy>::spin9_pop()
 {
     index_type head, tail, next;
     value_type item;
@@ -1092,9 +1152,9 @@ T * RingQueueBase<T, Capcity, CoreTy>::spin9_pop()
     return item;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-int RingQueueBase<T, Capcity, CoreTy>::mutex_push(T * item)
+int RingQueueBase<T, Capacity, CoreTy>::mutex_push(T * item)
 {
     index_type head, tail, next;
 
@@ -1120,9 +1180,9 @@ int RingQueueBase<T, Capcity, CoreTy>::mutex_push(T * item)
     return 0;
 }
 
-template <typename T, uint32_t Capcity, typename CoreTy>
+template <typename T, uint32_t Capacity, typename CoreTy>
 inline
-T * RingQueueBase<T, Capcity, CoreTy>::mutex_pop()
+T * RingQueueBase<T, Capacity, CoreTy>::mutex_pop()
 {
     index_type head, tail, next;
     value_type item;
@@ -1151,11 +1211,11 @@ T * RingQueueBase<T, Capcity, CoreTy>::mutex_pop()
 }
 
 ///////////////////////////////////////////////////////////////////
-// class SmallRingQueue<T, Capcity>
+// class SmallRingQueue<T, Capacity>
 ///////////////////////////////////////////////////////////////////
 
-template <typename T, uint32_t Capcity = 16U>
-class SmallRingQueue : public RingQueueBase<T, Capcity, SmallRingQueueCore<T, Capcity> >
+template <typename T, uint32_t Capacity = 1024U>
+class SmallRingQueue : public RingQueueBase<T, Capacity, SmallRingQueueCore<T, Capacity> >
 {
 public:
     typedef uint32_t                    size_type;
@@ -1166,7 +1226,7 @@ public:
     typedef T &                         reference;
     typedef const T &                   const_reference;
 
-    static const size_type kCapcity = RingQueueBase<T, Capcity, SmallRingQueueCore<T, Capcity> >::kCapcity;
+    static const size_type kCapacity = RingQueueBase<T, Capacity, SmallRingQueueCore<T, Capacity> >::kCapacity;
 
 public:
     SmallRingQueue(bool bFillQueue = true, bool bInitHead = false);
@@ -1179,46 +1239,46 @@ protected:
     void init_queue(bool bFillQueue = true);
 };
 
-template <typename T, uint32_t Capcity>
-SmallRingQueue<T, Capcity>::SmallRingQueue(bool bFillQueue /* = true */,
+template <typename T, uint32_t Capacity>
+SmallRingQueue<T, Capacity>::SmallRingQueue(bool bFillQueue /* = true */,
                                              bool bInitHead  /* = false */)
-: RingQueueBase<T, Capcity, SmallRingQueueCore<T, Capcity> >(bInitHead)
+: RingQueueBase<T, Capacity, SmallRingQueueCore<T, Capacity> >(bInitHead)
 {
     //printf("SmallRingQueue::SmallRingQueue();\n\n");
 
     init_queue(bFillQueue);
 }
 
-template <typename T, uint32_t Capcity>
-SmallRingQueue<T, Capcity>::~SmallRingQueue()
+template <typename T, uint32_t Capacity>
+SmallRingQueue<T, Capacity>::~SmallRingQueue()
 {
     // Do nothing!
 }
 
-template <typename T, uint32_t Capcity>
+template <typename T, uint32_t Capacity>
 inline
-void SmallRingQueue<T, Capcity>::init_queue(bool bFillQueue /* = true */)
+void SmallRingQueue<T, Capacity>::init_queue(bool bFillQueue /* = true */)
 {
     //printf("SmallRingQueue::init_queue();\n\n");
 
     if (bFillQueue) {
-        memset((void *)this->core.queue, 0, sizeof(value_type) * kCapcity);
+        memset((void *)this->core.queue, 0, sizeof(value_type) * kCapacity);
     }
 }
 
-template <typename T, uint32_t Capcity>
-void SmallRingQueue<T, Capcity>::dump_detail()
+template <typename T, uint32_t Capacity>
+void SmallRingQueue<T, Capacity>::dump_detail()
 {
     printf("SmallRingQueue: (head = %u, tail = %u)\n",
            this->core.info.head, this->core.info.tail);
 }
 
 ///////////////////////////////////////////////////////////////////
-// class RingQueue<T, Capcity>
+// class RingQueue<T, Capacity>
 ///////////////////////////////////////////////////////////////////
 
-template <typename T, uint32_t Capcity = 16U>
-class RingQueue : public RingQueueBase<T, Capcity, RingQueueCore<T, Capcity> >
+template <typename T, uint32_t Capacity = 1024U>
+class RingQueue : public RingQueueBase<T, Capacity, RingQueueCore<T, Capacity> >
 {
 public:
     typedef uint32_t                    size_type;
@@ -1229,9 +1289,9 @@ public:
     typedef T &                         reference;
     typedef const T &                   const_reference;
 
-    typedef RingQueueCore<T, Capcity>   core_type;
+    typedef RingQueueCore<T, Capacity>   core_type;
 
-    static const size_type kCapcity = RingQueueBase<T, Capcity, RingQueueCore<T, Capcity> >::kCapcity;
+    static const size_type kCapacity = RingQueueBase<T, Capacity, RingQueueCore<T, Capacity> >::kCapacity;
 
 public:
     RingQueue(bool bFillQueue = true, bool bInitHead = false);
@@ -1244,50 +1304,48 @@ protected:
     void init_queue(bool bFillQueue = true);
 };
 
-template <typename T, uint32_t Capcity>
-RingQueue<T, Capcity>::RingQueue(bool bFillQueue /* = true */,
+template <typename T, uint32_t Capacity>
+RingQueue<T, Capacity>::RingQueue(bool bFillQueue /* = true */,
                                    bool bInitHead  /* = false */)
-: RingQueueBase<T, Capcity, RingQueueCore<T, Capcity> >(bInitHead)
+: RingQueueBase<T, Capacity, RingQueueCore<T, Capacity> >(bInitHead)
 {
     //printf("RingQueue::RingQueue();\n\n");
 
     init_queue(bFillQueue);
 }
 
-template <typename T, uint32_t Capcity>
-RingQueue<T, Capcity>::~RingQueue()
+template <typename T, uint32_t Capacity>
+RingQueue<T, Capacity>::~RingQueue()
 {
     // If the queue is allocated on system heap, release them.
-    if (RingQueueCore<T, Capcity>::kIsAllocOnHeap) {
+    if (RingQueueCore<T, Capacity>::kIsAllocOnHeap) {
         delete [] this->core.queue;
         this->core.queue = NULL;
     }
 }
 
-template <typename T, uint32_t Capcity>
+template <typename T, uint32_t Capacity>
 inline
-void RingQueue<T, Capcity>::init_queue(bool bFillQueue /* = true */)
+void RingQueue<T, Capacity>::init_queue(bool bFillQueue /* = true */)
 {
     //printf("RingQueue::init_queue();\n\n");
 
-    value_type *newData = new T *[kCapcity];
+    value_type *newData = new T *[kCapacity];
     if (newData != NULL) {
         this->core.queue = newData;
         if (bFillQueue) {
-            memset((void *)this->core.queue, 0, sizeof(value_type) * kCapcity);
+            memset((void *)this->core.queue, 0, sizeof(value_type) * kCapacity);
         }
     }
 }
 
-template <typename T, uint32_t Capcity>
-void RingQueue<T, Capcity>::dump_detail()
+template <typename T, uint32_t Capacity>
+void RingQueue<T, Capacity>::dump_detail()
 {
     printf("RingQueue: (head = %u, tail = %u)\n",
            this->core.info.head, this->core.info.tail);
 }
 
 }  /* namespace jimi */
-
-#undef JIMI_CACHE_LINE_SIZE
 
 #endif  /* _JIMI_UTIL_RINGQUEUE_H_ */
