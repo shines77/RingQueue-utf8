@@ -47,18 +47,39 @@
 #define JIMI_ROUND_TO_POW2(N)   jimi_next_power_of_2(N)
 #endif
 
+#define jimi_nbits2(n)          (((n) & 2) ? 1 : 0)
+#define jimi_nbits4(n)          (((n) & 0x0000000CU) ? (2  +  jimi_nbits2((n) >> 2)) : ( jimi_nbits2(n)))
+#define jimi_nbits8(n)          (((n) & 0x000000F0U) ? (4  +  jimi_nbits4((n) >> 4)) : ( jimi_nbits4(n)))
+#define jimi_nbits16(n)         (((n) & 0x0000FF00U) ? (8  +  jimi_nbits8((n) >> 8)) : ( jimi_nbits8(n)))
+#define jimi_nbits32(n)         (((n) & 0xFFFF0000U) ? (16 + jimi_nbits16((n) >>16)) : (jimi_nbits16(n)))
+#define jimi_nbits_t(n)         (((n) == 0) ? 0 : (jimi_nbits32(n) + 1))
+
+#ifndef JIMI_POPCONUT
+#define JIMI_POPCONUT(N)        jimi_nbits_t(N)
+#endif  /* JIMI_POPCONUT */
+
+#define jimi_popcnt1(n)         ((n) - (((n) >> 1) & 0x55555555U))
+#define jimi_popcnt2(n)         ((jimi_popcnt1(n) & 0x33333333U) + ((jimi_popcnt1(n) >> 2) & 0x33333333U))
+#define jimi_popcnt3(n)         ((jimi_popcnt2(n) & 0x0F0F0F0FU) + ((jimi_popcnt2(n) >> 4) & 0x0F0F0F0FU))
+#define jimi_popcnt4(n)         ((jimi_popcnt3(n) & 0x0000FFFFU) +  (jimi_popcnt3(n) >>16))
+#define jimi_popcnt5(n)         ((jimi_popcnt4(n) & 0x000000FFU) +  (jimi_popcnt4(n) >> 8))
+
+#ifndef JIMI_POPCONUT32
+#define JIMI_POPCONUT32(N)      jimi_popcnt5(N)
+#endif  /* JIMI_POPCONUT32 */
+
 #ifndef jimi_mm_pause
-#define jimi_mm_pause       _mm_pause
+#define jimi_mm_pause           _mm_pause
 #endif
 
 #if defined(_MSC_VER) || defined(__INTER_COMPILER) || defined(__ICC)
 
 #ifndef jimi_likely
-#define jimi_likely(x)      (x)
+#define jimi_likely(x)          (x)
 #endif
 
 #ifndef jimi_unlikely
-#define jimi_unlikely(x)    (x)
+#define jimi_unlikely(x)        (x)
 #endif
 
 #ifndef JIMIC_INLINE
@@ -87,6 +108,8 @@
 /// See: http://en.wikipedia.org/wiki/Memory_ordering
 ///
 #define Jimi_ReadWriteBarrier() _ReadWriteBarrier()
+#define Jimi_ReadBarrier()      _ReadBarrier()
+#define Jimi_WriteBarrier()     _WriteBarrier()
 
 #define Jimi_MemoryBarrier()    MemoryBarrier()
 
@@ -122,7 +145,9 @@
 ///
 
 //#define Jimi_ReadWriteBarrier()     asm volatile ("":::"memory");
-#define Jimi_ReadWriteBarrier()     __asm__ __volatile__ ("":::"memory");
+#define Jimi_ReadWriteBarrier()     __asm__ __volatile__ ("" : : :"memory");
+#define Jimi_ReadBarrier()          __asm__ __volatile__ ("" : : :"memory");
+#define Jimi_WriteBarrier()         __asm__ __volatile__ ("" : : :"memory");
 
 #define Jimi_MemoryBarrier()        __sync_synchronize()
 
@@ -138,12 +163,20 @@
 #include <intrin.h>
 
 #define jimi_val_compare_and_swap32(destPtr, oldValue, newValue)        \
-    InterlockedCompareExchange((volatile LONG *)(destPtr),              \
-                            (LONG)(newValue), (LONG)(oldValue))
+    (int32_t)(InterlockedCompareExchange((volatile LONG *)(destPtr),    \
+                            (LONG)(newValue), (LONG)(oldValue)))
 
-#define jimi_val_compare_and_swap64(destPtr, oldValue, newValue)        \
-    InterlockedCompareExchange64((volatile LONG64 *)(destPtr),          \
-                            (LONG64)(newValue), (LONG64)(oldValue))
+#define jimi_val_compare_and_swap32u(destPtr, oldValue, newValue)       \
+    (uint32_t)(InterlockedCompareExchange((volatile LONG *)(destPtr),   \
+                            (LONG)(newValue), (LONG)(oldValue)))
+
+#define jimi_val_compare_and_swap64(destPtr, oldValue, newValue)           \
+    (int64_t)(InterlockedCompareExchange64((volatile LONG64 *)(destPtr),   \
+                            (LONG64)(newValue), (LONG64)(oldValue)))
+
+#define jimi_val_compare_and_swap64u(destPtr, oldValue, newValue)          \
+    (uint64_t)(InterlockedCompareExchange64((volatile LONG64 *)(destPtr),  \
+                            (LONG64)(newValue), (LONG64)(oldValue)))
 
 #define jimi_bool_compare_and_swap32(destPtr, oldValue, newValue)       \
     (InterlockedCompareExchange((volatile LONG *)(destPtr),             \
@@ -156,23 +189,43 @@
                                 == (LONG64)(oldValue))
 
 #define jimi_lock_test_and_set32(destPtr, newValue)                     \
-    InterlockedExchange((volatile LONG *)(destPtr), (LONG)(newValue))
+    (int32_t)(InterlockedExchange((volatile LONG *)(destPtr), (LONG)(newValue)))
+
+#define jimi_lock_test_and_set32u(destPtr, newValue)                    \
+    (uint32_t)(InterlockedExchange((volatile LONG *)(destPtr), (LONG)(newValue)))
+
+#define jimi_lock_test_and_set64(destPtr, newValue)                     \
+    (int64_t)(InterlockedExchange64((volatile LONGLONG *)(destPtr),     \
+                                    (LONGLONG)(newValue)))
+
+#define jimi_lock_test_and_set64u(destPtr, newValue)                    \
+    (uint64_t)(InterlockedExchange64((volatile LONGLONG *)(destPtr),    \
+                                    (LONGLONG)(newValue)))
 
 #define jimi_fetch_and_add32(destPtr, addValue)                         \
-    InterlockedExchangeAdd((volatile LONG *)(destPtr), (LONG)(addValue))
+    (uint32_t)(InterlockedExchangeAdd((volatile LONG *)(destPtr), (LONG)(addValue)))
 
 #define jimi_fetch_and_add64(destPtr, addValue)                         \
-    InterlockedExchangeAdd64((volatile LONGLONG *)(destPtr), (LONGLONG)(addValue))
+    (uint64_t)(InterlockedExchangeAdd64((volatile LONGLONG *)(destPtr), \
+                                        (LONGLONG)(addValue)))
 
 #elif defined(__GUNC__) || defined(__linux__) \
    || defined(__clang__) || defined(__APPLE__) || defined(__FreeBSD__) \
    || defined(__CYGWIN__) || defined(__MINGW32__)
 
-#define jimi_val_compare_and_swap32(destPtr, oldValue, newValue)        \
+#define jimi_val_compare_and_swap32(destPtr, oldValue, newValue)       \
+    __sync_val_compare_and_swap((volatile int32_t *)(destPtr),         \
+                            (int32_t)(oldValue), (int32_t)(newValue))
+
+#define jimi_val_compare_and_swap32u(destPtr, oldValue, newValue)       \
     __sync_val_compare_and_swap((volatile uint32_t *)(destPtr),         \
                             (uint32_t)(oldValue), (uint32_t)(newValue))
 
 #define jimi_val_compare_and_swap64(destPtr, oldValue, newValue)        \
+    __sync_val_compare_and_swap((volatile int64_t *)(destPtr),          \
+                            (int64_t)(oldValue), (int64_t)(newValue))
+
+#define jimi_val_compare_and_swap64u(destPtr, oldValue, newValue)       \
     __sync_val_compare_and_swap((volatile uint64_t *)(destPtr),         \
                             (uint64_t)(oldValue), (uint64_t)(newValue))
 
@@ -191,8 +244,20 @@
     __sync_bool_compare_and_swap((destPtr), (oldValue), (newValue))
 
 #define jimi_lock_test_and_set32(destPtr, newValue)                     \
+    __sync_lock_test_and_set((volatile int32_t *)(destPtr),             \
+                             (int32_t)(newValue))
+
+#define jimi_lock_test_and_set32u(destPtr, newValue)                    \
     __sync_lock_test_and_set((volatile uint32_t *)(destPtr),            \
                              (uint32_t)(newValue))
+
+#define jimi_lock_test_and_set64(destPtr, newValue)                     \
+    __sync_lock_test_and_set((volatile int64_t *)(destPtr),             \
+                             (int64_t)(newValue))
+
+#define jimi_lock_test_and_set64u(destPtr, newValue)                    \
+    __sync_lock_test_and_set((volatile uint64_t *)(destPtr),            \
+                             (uint64_t)(newValue))
 
 #define jimi_fetch_and_add32(destPtr, addValue)                         \
     __sync_fetch_and_add((volatile uint32_t *)(destPtr),                \
@@ -213,16 +278,36 @@
                                 (uint64_t)(oldValue), (uint64_t)(newValue))
 
 #define jimi_bool_compare_and_swap32(destPtr, oldValue, newValue)       \
+    __internal_bool_compare_and_swap32((volatile int32_t *)(destPtr),   \
+                                (int32_t)(oldValue), (int32_t)(newValue))
+
+#define jimi_bool_compare_and_swap32u(destPtr, oldValue, newValue)      \
     __internal_bool_compare_and_swap32((volatile uint32_t *)(destPtr),  \
                                 (uint32_t)(oldValue), (uint32_t)(newValue))
 
 #define jimi_bool_compare_and_swap64(destPtr, oldValue, newValue)       \
+    __internal_bool_compare_and_swap64((volatile int64_t *)(destPtr),   \
+                                (int64_t)(oldValue), (int64_t)(newValue))
+
+#define jimi_bool_compare_and_swap64u(destPtr, oldValue, newValue)      \
     __internal_bool_compare_and_swap64((volatile uint64_t *)(destPtr),  \
                                 (uint64_t)(oldValue), (uint64_t)(newValue))
 
 #define jimi_lock_test_and_set32(destPtr, newValue)                     \
+    __internal_lock_test_and_set32((volatile int32_t *)(destPtr),       \
+                                (int32_t)(newValue))
+
+#define jimi_lock_test_and_set32u(destPtr, newValue)                    \
     __internal_lock_test_and_set32((volatile uint32_t *)(destPtr),      \
                                 (uint32_t)(newValue))
+
+#define jimi_lock_test_and_set64(destPtr, newValue)                     \
+    __internal_lock_test_and_set64((volatile int64_t *)(destPtr),       \
+                                (int64_t)(newValue))
+
+#define jimi_lock_test_and_set64u(destPtr, newValue)                    \
+    __internal_lock_test_and_set64u((volatile uint64_t *)(destPtr),     \
+                                (uint64_t)(newValue))
 
 #define jimi_fetch_and_add32(destPtr, addValue)                         \
     __internal_fetch_and_add32((volatile uint32_t *)(destPtr),          \
@@ -275,11 +360,12 @@ int get_num_of_processors(void)
 }
 
 static JIMIC_INLINE
-uint32_t __internal_val_compare_and_swap32(volatile uint32_t *destPtr,
-                                           uint32_t oldValue,
-                                           uint32_t newValue)
+int32_t __internal_val_compare_and_swap32(volatile int32_t *destPtr,
+                                          int32_t oldValue,
+                                          int32_t newValue)
 {
-    uint32_t origValue = *destPtr;
+    int32_t origValue = *destPtr;
+    Jimi_ReadWriteBarrier();
     if (*destPtr == oldValue) {
         *destPtr = newValue;
     }
@@ -287,11 +373,38 @@ uint32_t __internal_val_compare_and_swap32(volatile uint32_t *destPtr,
 }
 
 static JIMIC_INLINE
-uint64_t __internal_val_compare_and_swap64(volatile uint64_t *destPtr,
-                                           uint64_t oldValue,
-                                           uint64_t newValue)
+uint32_t __internal_val_compare_and_swap32u(volatile uint32_t *destPtr,
+                                            uint32_t oldValue,
+                                            uint32_t newValue)
+{
+    uint32_t origValue = *destPtr;
+    Jimi_ReadWriteBarrier();
+    if (*destPtr == oldValue) {
+        *destPtr = newValue;
+    }
+    return origValue;
+}
+
+static JIMIC_INLINE
+int64_t __internal_val_compare_and_swap64(volatile int64_t *destPtr,
+                                          int64_t oldValue,
+                                          int64_t newValue)
+{
+    int64_t origValue = *destPtr;
+    Jimi_ReadWriteBarrier();
+    if (*destPtr == oldValue) {
+        *destPtr = newValue;
+    }
+    return origValue;
+}
+
+static JIMIC_INLINE
+uint64_t __internal_val_compare_and_swap64u(volatile uint64_t *destPtr,
+                                            uint64_t oldValue,
+                                            uint64_t newValue)
 {
     uint64_t origValue = *destPtr;
+    Jimi_ReadWriteBarrier();
     if (*destPtr == oldValue) {
         *destPtr = newValue;
     }
@@ -303,33 +416,77 @@ bool __internal_bool_compare_and_swap32(volatile uint32_t *destPtr,
                                         uint32_t oldValue,
                                         uint32_t newValue)
 {
+    Jimi_ReadWriteBarrier();
     if (*destPtr == oldValue) {
         *destPtr = newValue;
         return 1;
     }
-    else
-        return 0;
+    else return 0;
 }
 
 static JIMIC_INLINE
-bool __internal_bool_compare_and_swap64(volatile uint64_t *destPtr,
-                                        uint64_t oldValue,
-                                        uint64_t newValue)
+bool __internal_bool_compare_and_swap64(volatile int64_t *destPtr,
+                                        int64_t oldValue,
+                                        int64_t newValue)
 {
+    Jimi_ReadWriteBarrier();
     if (*destPtr == oldValue) {
         *destPtr = newValue;
         return 1;
     }
-    else
-        return 0;
+    else return 0;
 }
 
 static JIMIC_INLINE
-uint32_t __internal_lock_test_and_set32(volatile uint32_t *destPtr,
-                                        uint32_t newValue)
+bool __internal_bool_compare_and_swap64u(volatile uint64_t *destPtr,
+                                         uint64_t oldValue,
+                                         uint64_t newValue)
+{
+    Jimi_ReadWriteBarrier();
+    if (*destPtr == oldValue) {
+        *destPtr = newValue;
+        return 1;
+    }
+    else return 0;
+}
+
+static JIMIC_INLINE
+int32_t __internal_lock_test_and_set32(volatile int32_t *destPtr,
+                                       int32_t newValue)
+{
+    int32_t origValue = *destPtr;
+    *destPtr = newValue;
+    Jimi_ReadWriteBarrier();
+    return origValue;
+}
+
+static JIMIC_INLINE
+uint32_t __internal_lock_test_and_set32u(volatile uint32_t *destPtr,
+                                         uint32_t newValue)
 {
     uint32_t origValue = *destPtr;
     *destPtr = newValue;
+    Jimi_ReadWriteBarrier();
+    return origValue;
+}
+
+static JIMIC_INLINE
+int64_t __internal_lock_test_and_set64(volatile int64_t *destPtr,
+                                       int64_t newValue)
+{
+    int64_t origValue = *destPtr;
+    *destPtr = newValue;
+    Jimi_ReadWriteBarrier();
+    return origValue;
+}
+
+static JIMIC_INLINE
+uint64_t __internal_lock_test_and_set64u(volatile uint64_t *destPtr,
+                                         uint64_t newValue)
+{
+    uint64_t origValue = *destPtr;
+    *destPtr = newValue;
+    Jimi_ReadWriteBarrier();
     return origValue;
 }
 
@@ -339,6 +496,7 @@ uint32_t __internal_fetch_and_add32(volatile uint32_t *destPtr,
 {
     uint32_t origValue = *destPtr;
     *destPtr += addValue;
+    Jimi_ReadWriteBarrier();
     return origValue;
 }
 
@@ -348,6 +506,7 @@ uint64_t __internal_fetch_and_add64(volatile uint64_t *destPtr,
 {
     uint64_t origValue = *destPtr;
     *destPtr += addValue;
+    Jimi_ReadWriteBarrier();
     return origValue;
 }
 
