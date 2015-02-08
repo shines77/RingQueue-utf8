@@ -182,7 +182,7 @@ template <typename T, uint32_t Capacity, typename CoreTy>
 RingQueueBase<T, Capacity, CoreTy>::~RingQueueBase()
 {
     // Do nothing!
-    Jimi_ReadWriteBarrier();
+    Jimi_WriteBarrier();
 
     spin_mutex.locked = 0;
 
