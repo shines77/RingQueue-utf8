@@ -60,18 +60,19 @@ public:
 
     void init();
 
-    int push(T & entry);
+    int push(T const & entry);
     int pop(T & entry);
 
 protected:
-    sequence_type   head, tail;
+    sequence_type   headSequence;
+    sequence_type   tailSequence;
     item_type *     entries;
 };
 
 template <typename T, uint32_t Capacity>
 SerialRingQueue<T, Capacity>::SerialRingQueue()
-: head(0)
-, tail(0)
+: headSequence(0)
+, tailSequence(0)
 , entries(NULL)
 {
     init();
@@ -109,30 +110,38 @@ SerialRingQueue<T, Capacity>::sizes() const
 {
     sequence_type head, tail;
 
-    Jimi_WriteBarrier();
+    Jimi_ReadBarrier();
 
-    head = this->head;
-    tail = this->tail;
+    head = this->headSequence;
+    tail = this->tailSequence;
 
     return (size_type)((head - tail) <= kMask) ? (head - tail) : (size_type)(-1);
 }
 
 template <typename T, uint32_t Capacity>
-int SerialRingQueue<T, Capacity>::push(T & entry)
+int SerialRingQueue<T, Capacity>::push(T const & entry)
 {
     sequence_type head, tail, next;
-    head = this->head;
-    tail = this->tail;
+
+    Jimi_ReadBarrier();
+    head = this->headSequence;
+    tail = this->tailSequence;
     if ((head - tail) > kMask) {
-        Jimi_WriteBarrier();
         return -1;
     }
-    Jimi_ReadBarrier();
-    next = head + 1;
-    this->head = next;
 
-    //this->entries[(index_type)(head & kMask)] = entry;
+    Jimi_WriteBarrier();
+#if 0
+    this->entries[((index_type)head) & kMask] = entry;
+#else
     this->entries[head & (sequence_type)kMask] = entry;
+#endif
+
+    next = head + 1;
+
+    Jimi_WriteBarrier();
+    this->headSequence = next;
+
     return 0;
 }
 
@@ -140,18 +149,26 @@ template <typename T, uint32_t Capacity>
 int SerialRingQueue<T, Capacity>::pop(T & entry)
 {
     sequence_type head, tail, next;
-    head = this->head;
-    tail = this->tail;
+
+    Jimi_ReadBarrier();
+    head = this->headSequence;
+    tail = this->tailSequence;
     if ((tail == head) || (tail > head && (head - tail) > kMask)) {
-        Jimi_WriteBarrier();
         return -1;
     }
-    Jimi_ReadBarrier();
-    next = tail + 1;
-    this->tail = next;
 
-    //entry = this->entries[(index_type)(tail & kMask)];
+    Jimi_ReadBarrier();
+#if 0
+    entry = this->entries[((index_type)tail) & kMask)];
+#else
     entry = this->entries[tail & (sequence_type)kMask];
+#endif
+
+    next = tail + 1;
+
+    Jimi_ReadWriteBarrier();
+    this->tailSequence = next;
+
     return 0;
 }
 

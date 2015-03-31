@@ -12,8 +12,8 @@
 #define QMASK                   (QSIZE - 1)
 
 /// 分别定义push(推送)和pop(弹出)的线程数
-#define PUSH_CNT                1
-#define POP_CNT                 1
+#define PUSH_CNT                2
+#define POP_CNT                 2
 
 /// 分发给各个线程的消息总长度, 是各个线程消息数量的总和
 /// 如果是虚拟机里测试, 请自己修改为后面那个定义 8000
@@ -32,7 +32,13 @@
 /// 分发给每个(pop)线程的消息数量
 #define MAX_POP_MSG_COUNT       (MAX_MSG_COUNT / POP_CNT)
 
-#define DISPLAY_DEBUG_INFO      0
+////////////////////////////////////////////////////////////////////////////////
+
+/// 是否显示 push 失败次数, pop 失败次数 和 rdtsc计数 等额外的测试信息
+#define DISPLAY_EXTRA_RESULT        0
+
+/// 是否显示一些 Debug 信息
+#define DISPLAY_DEBUG_INFO          0
 
 ///
 /// 在 Sequence 类中是否使用 seq_spinlock() 锁 ?
@@ -157,9 +163,6 @@
 #define TEST_FUNC_TYPE                  FUNC_RINGQUEUE_MULTI_TEST
 #endif
 
-/// 是否显示 push 失败次数, pop 失败次数 和 rdtsc计数 等额外的测试信息
-#define DISPLAY_EXTRA_RESULT    0
-
 ///
 /// 在spin_mutex里是否使用spin_counter计数, 0为不使用(更快!建议设为该值), 1为使用
 ///
@@ -181,12 +184,12 @@
 extern "C" {
 #endif
 
-struct msg_t
+struct message_t
 {
     uint64_t dummy;
 };
 
-typedef struct msg_t msg_t;
+typedef struct message_t message_t;
 
 struct spin_mutex_t
 {
