@@ -2362,7 +2362,7 @@ int main(int argn, char * argv[])
     //RingQueue_Test(3, true);
 
     // 使用pthread_mutex_t, 调用RingQueue.mutex_push().
-    RingQueue_Test(FUNC_RINGQUEUE_MUTEX_PUSH, true);
+    //RingQueue_Test(FUNC_RINGQUEUE_MUTEX_PUSH, true);
 
     // 混合自旋锁, 速度较快, 不够稳定, 调用RingQueue.spin_push().
     RingQueue_Test(FUNC_RINGQUEUE_SPIN_PUSH,  true);
@@ -2402,7 +2402,7 @@ int main(int argn, char * argv[])
     //RingQueue_Test(FUNC_DOUBAN_Q3H, false);
 #endif
 
-    SpinMutex_Test();
+    //SpinMutex_Test();
 
     popmsg_list_destory();
     test_msg_destory();
