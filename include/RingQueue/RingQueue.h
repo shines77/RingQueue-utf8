@@ -39,10 +39,10 @@ struct RingQueueHead
 struct RingQueueHead
 {
     volatile uint32_t head;
-    char padding1[JIMI_CACHE_LINE_SIZE - sizeof(uint32_t)];
+    char padding1[JIMI_CACHELINE_SIZE - sizeof(uint32_t)];
 
     volatile uint32_t tail;
-    char padding2[JIMI_CACHE_LINE_SIZE - sizeof(uint32_t)];
+    char padding2[JIMI_CACHELINE_SIZE - sizeof(uint32_t)];
 };
 #endif
 
@@ -171,7 +171,7 @@ protected:
 };
 
 template <typename T, uint32_t Capacity, typename CoreTy>
-RingQueueBase<T, Capacity, CoreTy>::RingQueueBase(bool bInitHead  /* = false */)
+RingQueueBase<T, Capacity, CoreTy>::RingQueueBase(bool bInitHead /* = false */)
 {
     //printf("RingQueueBase::RingQueueBase();\n\n");
 
@@ -727,8 +727,11 @@ int RingQueueBase<T, Capacity, CoreTy>::spin2_push(T * item)
 
     core.queue[head & kMask] = item;
 
-    Jimi_CompilerBarrier();
-    spin_mutex.locked = 0;
+    //Jimi_CompilerBarrier();
+    //spin_mutex.locked = 0;
+    while (::InterlockedExchange(&spin_mutex.locked, 0U) != 1U) {
+        printf("spin2_push: ::InterlockedExchange(&spin_mutex.locked, 0U) != 1U \n");
+    }
 
     return 0;
 }
@@ -807,8 +810,11 @@ T * RingQueueBase<T, Capacity, CoreTy>::spin2_pop()
 
     item = core.queue[tail & kMask];
 
-    Jimi_CompilerBarrier();
-    spin_mutex.locked = 0;
+    //Jimi_CompilerBarrier();
+    //spin_mutex.locked = 0;
+    while (::InterlockedExchange(&spin_mutex.locked, 0U) != 1U) {
+        printf("spin2_pop: ::InterlockedExchange(&spin_mutex.locked, 0U) != 1U \n");
+    }
 
     return item;
 }
@@ -1338,6 +1344,6 @@ void RingQueue<T, Capacity>::dump_detail()
            this->core.info.head, this->core.info.tail);
 }
 
-}  /* namespace jimi */
+} // namespace jimi */
 
 #endif  /* _JIMI_UTIL_RINGQUEUE_H_ */

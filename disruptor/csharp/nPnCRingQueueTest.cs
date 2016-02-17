@@ -1,4 +1,4 @@
-锘\xBF#define RELEASE
+#define RELEASE
 
 using System;
 using System.IO;
