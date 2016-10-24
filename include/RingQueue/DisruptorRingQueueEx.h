@@ -46,7 +46,7 @@ struct gEntryCell_t
     ItemType  entry;
 };
 
-template <>
+template <typename ItemType, size_t EntryCellSize>
 struct gEntryCell_t<ItemType, EntryCellSize, false>
 {
     ItemType entry;
