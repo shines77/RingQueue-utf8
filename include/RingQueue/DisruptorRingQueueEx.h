@@ -40,7 +40,7 @@
 
 namespace jimi {
 
-template <typename ItemType, szie_t EntryCellSize, bool isAligned>
+template <typename ItemType, size_t EntryCellSize, bool isAligned>
 struct gEntryCell_t
 {
     ItemType  entry;
@@ -172,6 +172,7 @@ protected:
     flag_type *     availableBufferAlloc;
 };
 
+#if 0
 template <>
 struct DisruptorRingQueueEx<T, SequenceType, Capacity, Producers, Consumers, NumThreads>::EntryCell_t<false>
 {
@@ -181,6 +182,7 @@ struct DisruptorRingQueueEx<T, SequenceType, Capacity, Producers, Consumers, Num
     item_type   entry;
     char        padding[this_type::kEntryCellSize - sizeof(item_type)];
 };
+#endif
 
 template <typename T, typename SequenceType, uint32_t Capacity, uint32_t Producers, uint32_t Consumers, uint32_t NumThreads>
 DisruptorRingQueueEx<T, SequenceType, Capacity, Producers, Consumers, NumThreads>::DisruptorRingQueueEx(bool bFillQueue /* = true */)
