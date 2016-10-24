@@ -109,12 +109,6 @@ public:
         item_type   entry;
     };
 
-    template <>
-    struct EntryCell_t<false>
-    {
-        item_type   entry;
-        char        padding[kEntryCellSize - sizeof(item_type)];
-    };
     typedef struct EntryCell_t<(bool)(kEntryCellSize == sizeof(item_type))> cell_type;
 
 public:
@@ -162,6 +156,17 @@ protected:
     flag_type *     availableBuffer;
     item_type *     entriesAlloc;
     flag_type *     availableBufferAlloc;
+};
+
+template <>
+template <typename T, typename SequenceType, uint32_t Capacity, uint32_t Producers, uint32_t Consumers, uint32_t NumThreads>
+struct DisruptorRingQueueEx<T, SequenceType, Capacity, Producers, Consumers, NumThreads>::EntryCell_t<false>
+{
+    typedef DisruptorRingQueueEx<T, SequenceType, Capacity, Producers, Consumers, NumThreads> this_type;
+    typedef this_type::item_type item_type;
+
+    item_type   entry;
+    char        padding[this_type::kEntryCellSize - sizeof(item_type)];
 };
 
 template <typename T, typename SequenceType, uint32_t Capacity, uint32_t Producers, uint32_t Consumers, uint32_t NumThreads>
